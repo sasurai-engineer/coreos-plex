@@ -1,0 +1,126 @@
+#cloud-config
+
+hostname: home.sasurai.engineer
+
+write-files:
+    - path: /etc/conf.d/nfs
+      permissions: '0644'
+      content: |
+        OPTS_RPC_MOUNTD=""
+coreos:
+  update:
+    reboot-strategy: off
+  units:
+    - name: docker.service
+      command: start
+      enable: true
+    - name: sabnzbd.service
+      command: start
+      content: |
+        [Unit]
+        After=docker.service
+
+        [Service]
+        TimeoutSec=0
+
+        ExecStartPre=-/usr/bin/docker kill sabnzbd
+        ExecStartPre=-/usr/bin/docker rm sabnzbd
+        ExecStartPre=/usr/bin/docker pull timhaak/sabnzbd
+
+        ExecStart=/usr/bin/docker run -h sabnzbd --name="sabnzbd" -v /etc/docker/sabnzbd:/config -v /mnt/vol_1/share:/data -p 8080:8080 -p 9090:9090 timhaak/sabnzbd
+
+        ExecStop=/usr/bin/docker stop sabnzbd
+
+        Restart=always
+        RestartSec=10
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: plex.service
+      command: start
+      content: |
+        [Unit]
+        After=docker.service
+
+        [Service]
+        TimeoutSec=0
+
+        ExecStartPre=-/usr/bin/docker kill plex
+        ExecStartPre=-/usr/bin/docker rm plex
+        ExecStartPre=/usr/bin/docker pull timhaak/plex
+
+        ExecStart=/usr/bin/docker run -h plex --name "plex" -v /etc/docker/plex:/config -v /mnt/vol_1/share:/data -p 32400:32400 timhaak/plex
+
+        ExecStop=/usr/bin/docker stop plex
+
+        Restart=always
+        RestartSec=10
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: sickbeard.service
+      command: start
+      content: |
+        [Unit]
+        After=docker.service
+
+        [Service]
+        TimeoutSec=0
+
+        ExecStartPre=-/usr/bin/docker kill sickbeard
+        ExecStartPre=-/usr/bin/docker rm sickbeard
+        ExecStartPre=/usr/bin/docker pull timhaak/sickbeard
+
+        ExecStart=/usr/bin/docker run -h sickbeard --name="sickbeard" -v /etc/docker/sickbeard:/config -v /mnt/vol_1/share:/data -p 8081:8081 timhaak/sickbeard
+
+        ExecStop=/usr/bin/docker stop sickbeard
+
+        Restart=always
+        RestartSec=10
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: couchpotato.service
+      command: start
+      content: |
+        [Unit]
+        After=docker.service
+
+        [Service]
+        TimeoutSec=0
+
+        ExecStartPre=-/usr/bin/docker kill couchpotato
+        ExecStartPre=-/usr/bin/docker rm couchpotato
+        ExecStartPre=/usr/bin/docker pull timhaak/couchpotato
+
+        ExecStart=/usr/bin/docker run -h couchpotato -v /etc/docker/couchpotato:/config -v /etc/docker/couchpotato:/data -v /mnt/vol_1/share:/videos -p 5050:5050 --name couchpotato timhaak/couchpotato
+
+        ExecStop=/usr/bin/docker stop couchpotato
+
+        Restart=always
+        RestartSec=10
+
+        [Install]
+        WantedBy=multi-user.target
+    - name: rpc-statd.service
+      command: start
+      enable: true
+    - name: home.network
+      runtime: true
+      content: |
+        [Match]
+        Name=enp0s25
+
+        [Network]
+        Address=10.0.240.0/24
+        Gateway=10.0.240.1
+        DNS=10.0.240.1
+        DNS=8.8.8.8
+users:
+  - name: core
+    passwd: 
+  - groups:
+      - sudo
+      - docker
+    ssh-authorized-keys:
+      - 
